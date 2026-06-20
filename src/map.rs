@@ -1,4 +1,4 @@
-use crate::alloc::{Allocator, Global};
+use crate::alloc::Allocator;
 use crate::raw::{Bucket, RawDrain, RawExtractIf, RawIntoIter, RawIter, RawTable};
 use crate::{DefaultHashBuilder, Equivalent, TryReserveError};
 use core::borrow::Borrow;
@@ -8,10 +8,14 @@ use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::Index;
-use stdalloc::borrow::ToOwned;
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+use {crate::alloc::Global, stdalloc::borrow::ToOwned};
 
 #[cfg(feature = "raw-entry")]
 pub use crate::raw_entry::*;
+
+defaults_if_possible! {
 
 /// A hash map implemented with quadratic probing and SIMD lookup.
 ///
@@ -184,6 +188,8 @@ pub struct HashMap<K, V, S = DefaultHashBuilder, A: Allocator = Global> {
     pub(crate) table: RawTable<(K, V), A>,
 }
 
+}
+
 impl<K: Clone, V: Clone, S: Clone, A: Allocator + Clone> Clone for HashMap<K, V, S, A> {
     fn clone(&self) -> Self {
         HashMap {
@@ -241,7 +247,7 @@ where
     hash_builder.hash_one(val)
 }
 
-#[cfg(feature = "default-hasher")]
+#[cfg(all(feature = "default-hasher", not(feature = "rustc-dep-of-std")))]
 impl<K, V> HashMap<K, V, DefaultHashBuilder> {
     /// Creates an empty `HashMap`.
     ///
@@ -400,6 +406,7 @@ impl<K, V, A: Allocator> HashMap<K, V, DefaultHashBuilder, A> {
     }
 }
 
+#[cfg(not(feature = "rustc-dep-of-std"))]
 impl<K, V, S> HashMap<K, V, S> {
     /// Creates an empty `HashMap` which will use the given hash builder to hash
     /// keys.
@@ -2220,6 +2227,8 @@ impl<K, V> IterMut<'_, K, V> {
     }
 }
 
+defaults_if_possible! {
+
 /// An owning iterator over the entries of a `HashMap` in arbitrary order.
 /// The iterator element type is `(K, V)`.
 ///
@@ -2252,6 +2261,8 @@ pub struct IntoIter<K, V, A: Allocator = Global> {
     inner: RawIntoIter<(K, V), A>,
 }
 
+}
+
 impl<K, V, A: Allocator> IntoIter<K, V, A> {
     /// Returns a iterator of references over the remaining items.
     #[cfg_attr(feature = "inline-more", inline)]
@@ -2262,6 +2273,8 @@ impl<K, V, A: Allocator> IntoIter<K, V, A> {
         }
     }
 }
+
+defaults_if_possible! {
 
 /// An owning iterator over the keys of a `HashMap` in arbitrary order.
 /// The iterator element type is `K`.
@@ -2293,6 +2306,8 @@ impl<K, V, A: Allocator> IntoIter<K, V, A> {
 /// ```
 pub struct IntoKeys<K, V, A: Allocator = Global> {
     inner: IntoIter<K, V, A>,
+}
+
 }
 
 impl<K, V, A: Allocator> Default for IntoKeys<K, V, A> {
@@ -2341,6 +2356,8 @@ impl<K: Debug, V: Debug, A: Allocator> fmt::Debug for IntoKeys<K, V, A> {
     }
 }
 
+defaults_if_possible! {
+
 /// An owning iterator over the values of a `HashMap` in arbitrary order.
 /// The iterator element type is `V`.
 ///
@@ -2370,6 +2387,8 @@ impl<K: Debug, V: Debug, A: Allocator> fmt::Debug for IntoKeys<K, V, A> {
 /// ```
 pub struct IntoValues<K, V, A: Allocator = Global> {
     inner: IntoIter<K, V, A>,
+}
+
 }
 
 impl<K, V, A: Allocator> Default for IntoValues<K, V, A> {
@@ -2512,6 +2531,8 @@ impl<K, V: Debug> fmt::Debug for Values<'_, K, V> {
     }
 }
 
+defaults_if_possible! {
+
 /// A draining iterator over the entries of a `HashMap` in arbitrary
 /// order. The iterator element type is `(K, V)`.
 ///
@@ -2543,6 +2564,8 @@ pub struct Drain<'a, K, V, A: Allocator = Global> {
     inner: RawDrain<'a, (K, V), A>,
 }
 
+}
+
 impl<K, V, A: Allocator> Drain<'_, K, V, A> {
     /// Returns a iterator of references over the remaining items.
     #[cfg_attr(feature = "inline-more", inline)]
@@ -2553,6 +2576,8 @@ impl<K, V, A: Allocator> Drain<'_, K, V, A> {
         }
     }
 }
+
+defaults_if_possible! {
 
 /// A draining iterator over entries of a `HashMap` which don't satisfy the predicate
 /// `f(&k, &mut v)` in arbitrary order. The iterator element type is `(K, V)`.
@@ -2590,10 +2615,11 @@ pub struct ExtractIf<'a, K, V, F, A: Allocator = Global> {
     inner: RawExtractIf<'a, (K, V), A>,
 }
 
-impl<K, V, F, A> Iterator for ExtractIf<'_, K, V, F, A>
+}
+
+impl<K, V, F, A: Allocator> Iterator for ExtractIf<'_, K, V, F, A>
 where
     F: FnMut(&K, &mut V) -> bool,
-    A: Allocator,
 {
     type Item = (K, V);
 
@@ -2645,6 +2671,8 @@ pub struct ValuesMut<'a, K, V> {
     inner: IterMut<'a, K, V>,
 }
 
+defaults_if_possible! {
+
 /// A view into a single entry in a map, which may either be vacant or occupied.
 ///
 /// This `enum` is constructed from the [`entry`] method on [`HashMap`].
@@ -2687,10 +2715,7 @@ pub struct ValuesMut<'a, K, V> {
 /// vec.sort_unstable();
 /// assert_eq!(vec, [("a", 1), ("b", 2), ("c", 3), ("d", 4), ("e", 5), ("f", 6)]);
 /// ```
-pub enum Entry<'a, K, V, S, A = Global>
-where
-    A: Allocator,
-{
+pub enum Entry<'a, K, V, S, A: Allocator = Global> {
     /// An occupied entry.
     ///
     /// # Examples
@@ -2722,6 +2747,8 @@ where
     Vacant(VacantEntry<'a, K, V, S, A>),
 }
 
+}
+
 impl<K: Debug, V: Debug, S, A: Allocator> Debug for Entry<'_, K, V, S, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
@@ -2730,6 +2757,8 @@ impl<K: Debug, V: Debug, S, A: Allocator> Debug for Entry<'_, K, V, S, A> {
         }
     }
 }
+
+defaults_if_possible! {
 
 /// A view into an occupied entry in a [`HashMap`].
 /// It is part of the [`Entry`] and [`EntryRef`] enums.
@@ -2775,6 +2804,8 @@ pub struct OccupiedEntry<'a, K, V, S = DefaultHashBuilder, A: Allocator = Global
     table: &'a mut HashMap<K, V, S, A>,
 }
 
+}
+
 unsafe impl<K, V, S, A> Send for OccupiedEntry<'_, K, V, S, A>
 where
     K: Send,
@@ -2800,6 +2831,8 @@ impl<K: Debug, V: Debug, S, A: Allocator> Debug for OccupiedEntry<'_, K, V, S, A
             .finish()
     }
 }
+
+defaults_if_possible! {
 
 /// A view into a vacant entry in a `HashMap`.
 /// It is part of the [`Entry`] enum.
@@ -2835,11 +2868,15 @@ pub struct VacantEntry<'a, K, V, S = DefaultHashBuilder, A: Allocator = Global> 
     table: &'a mut HashMap<K, V, S, A>,
 }
 
+}
+
 impl<K: Debug, V, S, A: Allocator> Debug for VacantEntry<'_, K, V, S, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("VacantEntry").field(self.key()).finish()
     }
 }
+
+defaults_if_possible! {
 
 /// A view into a single entry in a map, which may either be vacant or occupied,
 /// with any borrowed form of the map's key type.
@@ -2889,10 +2926,7 @@ impl<K: Debug, V, S, A: Allocator> Debug for VacantEntry<'_, K, V, S, A> {
 /// }
 /// assert_eq!(map.len(), 6);
 /// ```
-pub enum EntryRef<'a, 'b, K, Q: ?Sized, V, S, A = Global>
-where
-    A: Allocator,
-{
+pub enum EntryRef<'a, 'b, K, Q ?Sized, V, S, A: Allocator = Global> {
     /// An occupied entry.
     ///
     /// # Examples
@@ -2924,6 +2958,8 @@ where
     Vacant(VacantEntryRef<'a, 'b, K, Q, V, S, A>),
 }
 
+}
+
 impl<K, Q, V, S, A> Debug for EntryRef<'_, '_, K, Q, V, S, A>
 where
     K: Debug + Borrow<Q>,
@@ -2938,6 +2974,8 @@ where
         }
     }
 }
+
+defaults_if_possible! {
 
 /// A view into a vacant entry in a `HashMap`.
 /// It is part of the [`EntryRef`] enum.
@@ -2967,10 +3005,12 @@ where
 /// }
 /// assert!(map["b"] == 20 && map.len() == 2);
 /// ```
-pub struct VacantEntryRef<'map, 'key, K, Q: ?Sized, V, S, A: Allocator = Global> {
+pub struct VacantEntryRef<'map, 'key, K, Q ?Sized, V, S, A: Allocator = Global> {
     hash: u64,
     key: &'key Q,
     table: &'map mut HashMap<K, V, S, A>,
+}
+
 }
 
 impl<K, Q, V, S, A> Debug for VacantEntryRef<'_, '_, K, Q, V, S, A>
@@ -2983,6 +3023,8 @@ where
         f.debug_tuple("VacantEntryRef").field(&self.key()).finish()
     }
 }
+
+defaults_if_possible! {
 
 /// The error returned by [`try_insert`](HashMap::try_insert) when the key already exists.
 ///
@@ -3013,6 +3055,8 @@ pub struct OccupiedError<'a, K, V, S, A: Allocator = Global> {
     pub entry: OccupiedEntry<'a, K, V, S, A>,
     /// The value which was not inserted, because the entry was already occupied.
     pub value: V,
+}
+
 }
 
 impl<K: Debug, V: Debug, S, A: Allocator> Debug for OccupiedError<'_, K, V, S, A> {

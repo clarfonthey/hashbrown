@@ -2,13 +2,18 @@ use core::{fmt, iter::FusedIterator, marker::PhantomData, ptr::NonNull};
 
 use crate::{
     TryReserveError,
-    alloc::{Allocator, Global},
+    alloc::{Allocator},
     control::Tag,
     raw::{
         Bucket, FullBucketsIndices, RawDrain, RawExtractIf, RawIntoIter, RawIter, RawIterHash,
         RawIterHashIndices, RawTable,
     },
 };
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+use crate::alloc::Global;
+
+defaults_if_possible! {
 
 /// Low-level hash table with explicit hashing.
 ///
@@ -45,14 +50,14 @@ use crate::{
 /// [`HashMap`]: super::HashMap
 /// [`HashSet`]: super::HashSet
 /// [`Hash`]: core::hash::Hash
-pub struct HashTable<T, A = Global>
-where
-    A: Allocator,
-{
+pub struct HashTable<T, A: Allocator = Global> {
     pub(crate) raw: RawTable<T, A>,
 }
 
-impl<T> HashTable<T, Global> {
+}
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+impl<T> HashTable<T> {
     /// Creates an empty `HashTable`.
     ///
     /// The hash table is initially created with a capacity of 0, so it will not allocate until it
@@ -1650,6 +1655,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// A view into a single entry in a table, which may either be vacant or occupied.
 ///
 /// This `enum` is constructed from the [`entry`] method on [`HashTable`].
@@ -1702,10 +1709,7 @@ where
 /// #     test()
 /// # }
 /// ```
-pub enum Entry<'a, T, A = Global>
-where
-    A: Allocator,
-{
+pub enum Entry<'a, T, A: Allocator = Global> {
     /// An occupied entry.
     ///
     /// # Examples
@@ -1762,6 +1766,8 @@ where
     /// # }
     /// ```
     Vacant(VacantEntry<'a, T, A>),
+}
+
 }
 
 impl<T: fmt::Debug, A: Allocator> fmt::Debug for Entry<'_, T, A> {
@@ -1959,6 +1965,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// A view into an occupied entry in a `HashTable`.
 /// It is part of the [`Entry`] enum.
 ///
@@ -2007,12 +2015,11 @@ where
 /// #     test()
 /// # }
 /// ```
-pub struct OccupiedEntry<'a, T, A = Global>
-where
-    A: Allocator,
-{
+pub struct OccupiedEntry<'a, T, A: Allocator = Global> {
     bucket: Bucket<T>,
     table: &'a mut HashTable<T, A>,
+}
+
 }
 
 unsafe impl<T, A> Send for OccupiedEntry<'_, T, A>
@@ -2352,6 +2359,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// A view into a vacant entry in a `HashTable`.
 /// It is part of the [`Entry`] enum.
 ///
@@ -2389,13 +2398,12 @@ where
 /// #     test()
 /// # }
 /// ```
-pub struct VacantEntry<'a, T, A = Global>
-where
-    A: Allocator,
-{
+pub struct VacantEntry<'a, T, A: Allocator = Global> {
     tag: Tag,
     index: usize,
     table: &'a mut HashTable<T, A>,
+}
+
 }
 
 impl<T: fmt::Debug, A: Allocator> fmt::Debug for VacantEntry<'_, T, A> {
@@ -2459,6 +2467,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// Type representing the absence of an entry, as returned by [`HashTable::find_entry`]
 /// and [`HashTable::get_bucket_entry`].
 ///
@@ -2501,11 +2511,10 @@ where
 /// #     test()
 /// # }
 /// ```
-pub struct AbsentEntry<'a, T, A = Global>
-where
-    A: Allocator,
-{
+pub struct AbsentEntry<'a, T, A: Allocator = Global> {
     table: &'a mut HashTable<T, A>,
+}
+
 }
 
 impl<T: fmt::Debug, A: Allocator> fmt::Debug for AbsentEntry<'_, T, A> {
@@ -3020,6 +3029,8 @@ impl<T> fmt::Debug for IterHashBuckets<'_, T> {
     }
 }
 
+defaults_if_possible! {
+
 /// An owning iterator over the entries of a `HashTable` in arbitrary order.
 /// The iterator element type is `T`.
 ///
@@ -3028,12 +3039,12 @@ impl<T> fmt::Debug for IterHashBuckets<'_, T> {
 /// The table cannot be used after calling that method.
 ///
 /// [`into_iter`]: HashTable::into_iter
-pub struct IntoIter<T, A = Global>
-where
-    A: Allocator,
-{
+pub struct IntoIter<T, A: Allocator = Global> {
     inner: RawIntoIter<T, A>,
 }
+
+}
+
 impl<T, A> IntoIter<T, A>
 where
     A: Allocator,
@@ -3101,6 +3112,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// A draining iterator over the items of a `HashTable`.
 ///
 /// This `struct` is created by the [`drain`] method on [`HashTable`].
@@ -3110,7 +3123,7 @@ where
 pub struct Drain<'a, T, A: Allocator = Global> {
     inner: RawDrain<'a, T, A>,
 }
-impl<T, A: Allocator> Drain<'_, T, A> {
+impl<'a, T, A: Allocator> Drain<'a, T, A> {
     /// Returns a iterator of references over the remaining items.
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn iter(&self) -> Iter<'_, T> {
@@ -3155,6 +3168,8 @@ impl<T: fmt::Debug, A: Allocator> fmt::Debug for Drain<'_, T, A> {
     }
 }
 
+defaults_if_possible! {
+
 /// A draining iterator over entries of a `HashTable` which don't satisfy the predicate `f`.
 ///
 /// This `struct` is created by [`HashTable::extract_if`]. See its
@@ -3163,6 +3178,7 @@ impl<T: fmt::Debug, A: Allocator> fmt::Debug for Drain<'_, T, A> {
 pub struct ExtractIf<'a, T, F, A: Allocator = Global> {
     f: F,
     inner: RawExtractIf<'a, T, A>,
+}
 }
 
 impl<T, F, A: Allocator> Iterator for ExtractIf<'_, T, F, A>

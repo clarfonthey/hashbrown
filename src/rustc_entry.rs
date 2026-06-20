@@ -1,5 +1,5 @@
 use self::RustcEntry::*;
-use crate::alloc::{Allocator, Global};
+use crate::alloc::Allocator;
 use crate::map::{Drain, HashMap, IntoIter, Iter, IterMut, make_hash, make_hasher};
 use crate::raw::{Bucket, RawTable};
 use core::fmt::{self, Debug};
@@ -108,7 +108,7 @@ where
 /// Note: There are no impls for this type, because we expect the standard library will
 /// immediately reconstruct these errors into its own `OccupiedError`.
 #[non_exhaustive]
-pub struct RustcOccupiedError<'a, K, V, A = Global>
+pub struct RustcOccupiedError<'a, K, V, A>
 where
     A: Allocator,
 {
@@ -125,7 +125,7 @@ where
 /// This `enum` is constructed from the [`rustc_entry`] method on [`HashMap`].
 ///
 /// [`rustc_entry`]: HashMap::rustc_entry
-pub enum RustcEntry<'a, K, V, A = Global>
+pub enum RustcEntry<'a, K, V, A>
 where
     A: Allocator,
 {
@@ -147,7 +147,7 @@ impl<K: Debug, V: Debug, A: Allocator> Debug for RustcEntry<'_, K, V, A> {
 
 /// A view into an occupied entry in a `HashMap`.
 /// It is part of the [`RustcEntry`] enum.
-pub struct RustcOccupiedEntry<'a, K, V, A = Global>
+pub struct RustcOccupiedEntry<'a, K, V, A>
 where
     A: Allocator,
 {
@@ -181,7 +181,7 @@ impl<K: Debug, V: Debug, A: Allocator> Debug for RustcOccupiedEntry<'_, K, V, A>
 
 /// A view into a vacant entry in a `HashMap`.
 /// It is part of the [`RustcEntry`] enum.
-pub struct RustcVacantEntry<'a, K, V, A = Global>
+pub struct RustcVacantEntry<'a, K, V, A>
 where
     A: Allocator,
 {

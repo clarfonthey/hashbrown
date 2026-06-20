@@ -1,10 +1,13 @@
 use crate::Equivalent;
-use crate::alloc::{Allocator, Global};
+use crate::alloc::Allocator;
 use crate::map::{HashMap, equivalent, make_hash, make_hasher};
 use crate::raw::{Bucket, RawTable};
 use core::fmt::{self, Debug};
 use core::hash::{BuildHasher, Hash};
 use core::mem;
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+use crate::alloc::Global;
 
 impl<K, V, S, A: Allocator> HashMap<K, V, S, A> {
     /// Creates a raw entry builder for the `HashMap`.
@@ -159,6 +162,8 @@ impl<K, V, S, A: Allocator> HashMap<K, V, S, A> {
     }
 }
 
+defaults_if_possible! {
+
 /// A builder for computing where in a [`HashMap`] a key-value pair would be stored.
 ///
 /// See the [`HashMap::raw_entry_mut`] docs for usage examples.
@@ -217,6 +222,10 @@ impl<K, V, S, A: Allocator> HashMap<K, V, S, A> {
 pub struct RawEntryBuilderMut<'a, K, V, S, A: Allocator = Global> {
     map: &'a mut HashMap<K, V, S, A>,
 }
+
+}
+
+defaults_if_possible! {
 
 /// A view into a single entry in a map, which may either be vacant or occupied.
 ///
@@ -301,7 +310,7 @@ pub struct RawEntryBuilderMut<'a, K, V, S, A: Allocator = Global> {
 /// vec.sort_unstable();
 /// assert_eq!(vec, [('a', 10), ('b', 20), ('c', 30), ('d', 40), ('e', 50), ('f', 60)]);
 /// ```
-pub enum RawEntryMut<'a, K, V, S, A: Allocator = Global> {
+pub enum RawEntryMut<'a, K, V, S, A: Allocator> {
     /// An occupied entry.
     ///
     /// # Examples
@@ -331,6 +340,9 @@ pub enum RawEntryMut<'a, K, V, S, A: Allocator = Global> {
     /// ```
     Vacant(RawVacantEntryMut<'a, K, V, S, A>),
 }
+
+}
+defaults_if_possible! {
 
 /// A view into an occupied entry in a `HashMap`.
 /// It is part of the [`RawEntryMut`] enum.
@@ -396,6 +408,8 @@ pub struct RawOccupiedEntryMut<'a, K, V, S, A: Allocator = Global> {
     hash_builder: &'a S,
 }
 
+}
+
 unsafe impl<K, V, S, A> Send for RawOccupiedEntryMut<'_, K, V, S, A>
 where
     K: Send,
@@ -412,6 +426,8 @@ where
     A: Sync + Allocator,
 {
 }
+
+defaults_if_possible! {
 
 /// A view into a vacant entry in a `HashMap`.
 /// It is part of the [`RawEntryMut`] enum.
@@ -464,6 +480,9 @@ pub struct RawVacantEntryMut<'a, K, V, S, A: Allocator = Global> {
     hash_builder: &'a S,
 }
 
+}
+defaults_if_possible! {
+
 /// A builder for computing where in a [`HashMap`] a key-value pair would be stored.
 ///
 /// See the [`HashMap::raw_entry`] docs for usage examples.
@@ -500,6 +519,8 @@ pub struct RawVacantEntryMut<'a, K, V, S, A: Allocator = Global> {
 /// ```
 pub struct RawEntryBuilder<'a, K, V, S, A: Allocator = Global> {
     map: &'a HashMap<K, V, S, A>,
+}
+
 }
 
 impl<'a, K, V, S, A: Allocator> RawEntryBuilderMut<'a, K, V, S, A> {

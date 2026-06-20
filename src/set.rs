@@ -7,7 +7,10 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, 
 
 use super::map::{self, HashMap, Keys};
 use crate::DefaultHashBuilder;
-use crate::alloc::{Allocator, Global};
+use crate::alloc::Allocator;
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+use crate::alloc::Global;
 use crate::raw::RawExtractIf;
 
 // Future Optimization (FIXME!)
@@ -16,6 +19,8 @@ use crate::raw::RawExtractIf;
 // Iteration over zero sized values is a noop. There is no need
 // for `bucket.val` in the case of HashSet. I suppose we would need HKT
 // to get rid of it properly.
+
+defaults_if_possible! {
 
 /// A hash set implemented as a `HashMap` where the value is `()`.
 ///
@@ -108,8 +113,10 @@ use crate::raw::RawExtractIf;
 ///
 /// [`Cell`]: std::cell::Cell
 /// [`RefCell`]: std::cell::RefCell
-pub struct HashSet<T, S = DefaultHashBuilder, A: Allocator = Global> {
+pub struct HashSet<T, S = DefaultHashBuilder, A: Allocator> {
     pub(crate) map: HashMap<T, (), S, A>,
+}
+
 }
 
 impl<T: Clone, S: Clone, A: Allocator + Clone> Clone for HashSet<T, S, A> {
@@ -124,7 +131,7 @@ impl<T: Clone, S: Clone, A: Allocator + Clone> Clone for HashSet<T, S, A> {
     }
 }
 
-#[cfg(feature = "default-hasher")]
+#[cfg(all(feature = "default-hasher", not(feature = "rustc-dep-of-std")))]
 impl<T> HashSet<T, DefaultHashBuilder> {
     /// Creates an empty `HashSet`.
     ///
@@ -429,7 +436,8 @@ impl<T, S, A: Allocator> HashSet<T, S, A> {
     }
 }
 
-impl<T, S> HashSet<T, S, Global> {
+#[cfg(not(feature = "rustc-dep-of-std"))]
+impl<T, S> HashSet<T, S> {
     /// Creates a new empty hash set which will use the given hasher to hash
     /// keys.
     ///
@@ -1628,6 +1636,8 @@ pub struct Iter<'a, K> {
     iter: Keys<'a, K, ()>,
 }
 
+defaults_if_possible! {
+
 /// An owning iterator over the items of a `HashSet`.
 ///
 /// This `struct` is created by the [`into_iter`] method on [`HashSet`]
@@ -1638,6 +1648,9 @@ pub struct IntoIter<K, A: Allocator = Global> {
     iter: map::IntoIter<K, (), A>,
 }
 
+}
+defaults_if_possible! {
+
 /// A draining iterator over the items of a `HashSet`.
 ///
 /// This `struct` is created by the [`drain`] method on [`HashSet`].
@@ -1647,6 +1660,9 @@ pub struct IntoIter<K, A: Allocator = Global> {
 pub struct Drain<'a, K, A: Allocator = Global> {
     iter: map::Drain<'a, K, (), A>,
 }
+
+}
+defaults_if_possible! {
 
 /// A draining iterator over entries of a `HashSet` which don't satisfy the predicate `f`.
 ///
@@ -1659,6 +1675,9 @@ pub struct ExtractIf<'a, K, F, A: Allocator = Global> {
     f: F,
     inner: RawExtractIf<'a, (K, ()), A>,
 }
+
+}
+defaults_if_possible! {
 
 /// A lazy iterator producing elements in the intersection of `HashSet`s.
 ///
@@ -1673,6 +1692,9 @@ pub struct Intersection<'a, T, S, A: Allocator = Global> {
     other: &'a HashSet<T, S, A>,
 }
 
+}
+defaults_if_possible! {
+
 /// A lazy iterator producing elements in the difference of `HashSet`s.
 ///
 /// This `struct` is created by the [`difference`] method on [`HashSet`].
@@ -1686,6 +1708,9 @@ pub struct Difference<'a, T, S, A: Allocator = Global> {
     other: &'a HashSet<T, S, A>,
 }
 
+}
+defaults_if_possible! {
+
 /// A lazy iterator producing elements in the symmetric difference of `HashSet`s.
 ///
 /// This `struct` is created by the [`symmetric_difference`] method on
@@ -1696,6 +1721,9 @@ pub struct SymmetricDifference<'a, T, S, A: Allocator = Global> {
     iter: Chain<Difference<'a, T, S, A>, Difference<'a, T, S, A>>,
 }
 
+}
+defaults_if_possible! {
+
 /// A lazy iterator producing elements in the union of `HashSet`s.
 ///
 /// This `struct` is created by the [`union`] method on [`HashSet`].
@@ -1704,6 +1732,8 @@ pub struct SymmetricDifference<'a, T, S, A: Allocator = Global> {
 /// [`union`]: HashSet::union
 pub struct Union<'a, T, S, A: Allocator = Global> {
     iter: Chain<Iter<'a, T>, Difference<'a, T, S, A>>,
+}
+
 }
 
 impl<'a, T, S, A: Allocator> IntoIterator for &'a HashSet<T, S, A> {
@@ -1756,6 +1786,7 @@ impl<K> Clone for Iter<'_, K> {
         }
     }
 }
+
 impl<K> Default for Iter<'_, K> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
@@ -1764,7 +1795,7 @@ impl<K> Default for Iter<'_, K> {
         }
     }
 }
-impl<'a, K> Iterator for Iter<'a, K> {
+impl<'a, K: 'a> Iterator for Iter<'a, K> {
     type Item = &'a K;
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -2155,6 +2186,8 @@ where
     }
 }
 
+defaults_if_possible! {
+
 /// A view into a single entry in a set, which may either be vacant or occupied.
 ///
 /// This `enum` is constructed from the [`entry`] method on [`HashSet`].
@@ -2190,10 +2223,7 @@ where
 /// vec.sort_unstable();
 /// assert_eq!(vec, ["a", "b", "c", "d", "e"]);
 /// ```
-pub enum Entry<'a, T, S, A = Global>
-where
-    A: Allocator,
-{
+pub enum Entry<'a, T, S, A: Allocator = Global> {
     /// An occupied entry.
     ///
     /// # Examples
@@ -2225,6 +2255,8 @@ where
     Vacant(VacantEntry<'a, T, S, A>),
 }
 
+}
+
 impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for Entry<'_, T, S, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
@@ -2233,6 +2265,8 @@ impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for Entry<'_, T, S, A> {
         }
     }
 }
+
+defaults_if_possible! {
 
 /// A view into an occupied entry in a `HashSet`.
 /// It is part of the [`Entry`] enum.
@@ -2272,6 +2306,8 @@ pub struct OccupiedEntry<'a, T, S, A: Allocator = Global> {
     inner: map::OccupiedEntry<'a, T, (), S, A>,
 }
 
+}
+
 impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for OccupiedEntry<'_, T, S, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("OccupiedEntry")
@@ -2279,6 +2315,8 @@ impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for OccupiedEntry<'_, T, S, A> {
             .finish()
     }
 }
+
+defaults_if_possible! {
 
 /// A view into a vacant entry in a `HashSet`.
 /// It is part of the [`Entry`] enum.
@@ -2306,6 +2344,8 @@ impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for OccupiedEntry<'_, T, S, A> {
 /// ```
 pub struct VacantEntry<'a, T, S, A: Allocator = Global> {
     inner: map::VacantEntry<'a, T, (), S, A>,
+}
+
 }
 
 impl<T: fmt::Debug, S, A: Allocator> fmt::Debug for VacantEntry<'_, T, S, A> {

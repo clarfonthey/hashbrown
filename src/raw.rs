@@ -10,11 +10,14 @@ use core::mem::{self, ManuallyDrop};
 use core::ptr;
 use core::ptr::NonNull;
 use core::slice;
-use stdalloc::alloc::handle_alloc_error;
+use crate::alloc::handle_alloc_error;
 
 #[cfg(test)]
 use crate::alloc::AllocError;
-use crate::alloc::{Allocator, Global, do_alloc};
+use crate::alloc::{Allocator, do_alloc};
+
+#[cfg(not(feature = "rustc-dep-of-std"))]
+use crate::alloc::Global;
 
 #[inline]
 unsafe fn offset_from<T>(to: *const T, from: *const T) -> usize {
@@ -556,12 +559,16 @@ impl<T> Bucket<T> {
     }
 }
 
+defaults_if_possible! {
+
 /// A raw hash table with an unsafe API.
 pub(crate) struct RawTable<T, A: Allocator = Global> {
     table: RawTableInner,
     alloc: A,
     // Tell dropck that we own instances of T.
     marker: PhantomData<T>,
+}
+
 }
 
 /// Non-generic part of `RawTable` which allows functions to be instantiated only once regardless
@@ -582,7 +589,8 @@ struct RawTableInner {
     items: usize,
 }
 
-impl<T> RawTable<T, Global> {
+#[cfg(not(feature = "rustc-dep-of-std"))]
+impl<T> RawTable<T> {
     /// Creates a new empty hash table without allocating any memory.
     ///
     /// In effect this returns a table with exactly 1 bucket. However we can
@@ -4020,11 +4028,15 @@ impl Iterator for FullBucketsIndices {
 impl ExactSizeIterator for FullBucketsIndices {}
 impl FusedIterator for FullBucketsIndices {}
 
+defaults_if_possible! {
+
 /// Iterator which consumes a table and returns elements.
 pub(crate) struct RawIntoIter<T, A: Allocator = Global> {
     iter: RawIter<T>,
     allocation: Option<(NonNull<u8>, Layout, A)>,
     marker: PhantomData<T>,
+}
+
 }
 
 impl<T, A: Allocator> RawIntoIter<T, A> {
@@ -4104,6 +4116,8 @@ impl<T, A: Allocator> Iterator for RawIntoIter<T, A> {
 impl<T, A: Allocator> ExactSizeIterator for RawIntoIter<T, A> {}
 impl<T, A: Allocator> FusedIterator for RawIntoIter<T, A> {}
 
+defaults_if_possible! {
+
 /// Iterator which consumes elements without freeing the table storage.
 pub(crate) struct RawDrain<'a, T, A: Allocator = Global> {
     iter: RawIter<T>,
@@ -4117,6 +4131,8 @@ pub(crate) struct RawDrain<'a, T, A: Allocator = Global> {
     // We don't use a &'a mut RawTable<T> because we want RawDrain to be
     // covariant over T.
     marker: PhantomData<&'a RawTable<T, A>>,
+}
+
 }
 
 impl<T, A: Allocator> RawDrain<'_, T, A> {

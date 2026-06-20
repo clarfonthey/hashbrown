@@ -1,6 +1,8 @@
 #[cfg(test)]
 pub(crate) use self::inner::AllocError;
-pub(crate) use self::inner::{Allocator, Global, do_alloc};
+#[cfg(not(feature = "rustc-dep-of-std"))]
+pub(crate) use self::inner::Global;
+pub(crate) use self::inner::{Allocator, do_alloc};
 
 // Nightly-case.
 // Use unstable `allocator_api` feature.
@@ -12,7 +14,9 @@ mod inner {
     use core::ptr::NonNull;
     #[cfg(test)]
     pub(crate) use stdalloc::alloc::AllocError;
-    pub(crate) use stdalloc::alloc::{Allocator, Global};
+    pub(crate) use stdalloc::alloc::Allocator;
+    #[cfg(not(feature = "rustc-dep-of-std"))]
+    pub(crate) use stdalloc::alloc::Global;
 
     pub(crate) fn do_alloc<A: Allocator>(alloc: &A, layout: Layout) -> Result<NonNull<[u8]>, ()> {
         match alloc.allocate(layout) {
@@ -52,7 +56,11 @@ mod inner {
 // in this crate.
 // Any crate in build-tree can enable `allocator-api2`,
 // or `nightly` without disturbing users that don't want to use it.
-#[cfg(not(any(feature = "nightly", feature = "allocator-api2")))]
+#[cfg(not(any(
+    feature = "nightly",
+    feature = "allocator-api2",
+    feature = "rustc-dep-of-std"
+)))]
 mod inner {
     use core::alloc::Layout;
     use core::ptr::NonNull;

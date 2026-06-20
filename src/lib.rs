@@ -38,8 +38,11 @@
 extern crate std;
 
 #[cfg_attr(test, macro_use)]
-#[cfg_attr(feature = "rustc-dep-of-std", allow(unused_extern_crates))]
+#[cfg(not(feature = "rustc-dep-of-std"))]
 extern crate alloc as stdalloc;
+
+#[cfg(feature = "rustc-dep-of-std")]
+extern crate core as stdalloc;
 
 #[doc = include_str!("../README.md")]
 #[cfg(doctest)]

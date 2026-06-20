@@ -40,3 +40,30 @@ macro_rules! default_fn {
         $($tt)*
     }
 }
+
+
+// NOTE: handling of ?Sized is very cursed, fix later
+#[cfg(feature = "rustc-dep-of-std")]
+macro_rules! defaults_if_possible {
+    ($(
+        $(#[$attr:meta])*
+        $vis:vis $kw:ident $t:ident<$($generic:tt $(: $bound:ident)? $(= $default:ident)? $(? $sized:ident)?),+ $(,)?> {$(
+            $inner:tt
+        )*}
+    )*) => {$(
+        $(#[$attr])*
+        $vis $kw $t<$($generic $(: ?$sized)? $(: $bound)?,)*> {$($inner)*}
+    )*}
+}
+#[cfg(not(feature = "rustc-dep-of-std"))]
+macro_rules! defaults_if_possible {
+    ($(
+        $(#[$attr:meta])*
+            $vis:vis $kw:ident $t:ident<$($generic:tt $(: $bound:ident)? $(= $default:ident)? $(? $sized:ident)?),+> {$(
+            $inner:tt
+        )*}
+    )*) => {$(
+        $(#[$attr])*
+        $vis $kw $t<$($generic $(: ?$sized)? $(: $bound)? $(= $default)?,)*> {$($inner)*}
+    )*}
+}
